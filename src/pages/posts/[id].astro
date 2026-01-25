@@ -1,0 +1,74 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+
+// Инструменты для Directus
+import { readItem } from '@directus/sdk';
+import { directus } from '../../lib/directus';
+
+// 1. Получаем ID из URL
+const { id } = Astro.params;
+
+// 2. Загружаем статью
+let post: any;
+try {
+  post = await directus.request(readItem('posts', id as string));
+} catch (error) {
+  console.error("Ошибка загрузки статьи:", error);
+}
+
+// Если статьи нет — уходим на 404
+if (!post) {
+  return Astro.redirect("/404");
+}
+---
+
+<Layout title={post.title}>
+  <Header />
+  <main id="main-content" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
+    <article>
+      <header style="margin-bottom: 3rem;">
+        <h1 style="font-size: 3rem; font-weight: bold; line-height: 1.2; margin-bottom: 1rem;">
+          {post.title}
+        </h1>
+        {post.description && (
+          <p style="font-size: 1.25rem; opacity: 0.7; font-style: italic;">
+            {post.description}
+          </p>
+        )}
+      </header>
+
+      <div class="post-content" set:html={post.content || "Текст статьи пуст."} />
+    </article>
+
+    <div style="margin-top: 5rem; padding-top: 2rem; border-top: 1px dashed #444;">
+      <a href="/" style="color: var(--color-accent, #e11d48); text-decoration: none; font-weight: 500;">
+        &larr; Назад на главную
+      </a>
+    </div>
+  </main>
+  <Footer />
+</Layout>
+
+<style is:global>
+  /* Стили для контента, чтобы текст не слипался */
+  .post-content {
+    line-height: 1.8;
+    font-size: 1.15rem;
+  }
+  .post-content p {
+    margin-bottom: 1.5rem;
+  }
+  .post-content h2 {
+    font-size: 1.8rem;
+    margin: 2.5rem 0 1rem;
+    font-weight: 600;
+  }
+  .post-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 2rem 0;
+  }
+</style>
