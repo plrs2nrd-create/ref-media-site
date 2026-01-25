@@ -3,81 +3,109 @@ import Layout from "../../layouts/Layout.astro";
 import Header from "../../components/Header.astro";
 import Footer from "../../components/Footer.astro";
 
-// Инструменты для Directus
-import { readItem } from '@directus/sdk';
-import { directus } from '../../lib/directus';
+import { readItems, readItem } from "@directus/sdk";
+import { directus } from "../../lib/directus";
 
-// 1. Получаем ID из URL
+export const prerender = true;
+
+type Post = {
+  id: string | number;
+  title?: string;
+  description?: string;
+  content?: string;
+  body?: string;
+  date_created?: string;
+  date_updated?: string;
+};
+
+export async function getStaticPaths() {
+  try {
+    const posts = (await directus.request(
+      readItems("posts", {
+        fields: ["id"],
+        limit: -1,
+        // filter: { status: { _eq: "published" } },
+      })
+    )) as Array<Pick<Post, "id">>;
+
+    return posts
+      .filter((p) => p?.id !== undefined && p?.id !== null)
+      .map((p) => ({
+        params: { id: String(p.id) },
+      }));
+  } catch (error) {
+    console.error("Directus getStaticPaths error:", error);
+    return [];
+  }
+}
+
 const { id } = Astro.params;
 
-// 2. Загружаем статью
-// @ts-ignore
-let post: any;
+let post: Post | null = null;
 
 try {
-  const response = await directus.request(readItem('posts', id as string));
-  post = response as any;
+  post = (await directus.request(
+    readItem("posts", id, {
+      fields: [
+        "id",
+        "title",
+        "description",
+        "content",
+        "body",
+        "date_created",
+        "date_updated",
+      ],
+    })
+  )) as Post;
 } catch (error) {
-  console.error("Ошибка загрузки статьи:", error);
+  console.error("Directus post fetch error:", error);
+  post = null;
 }
 
-try {
-  post = await directus.request(readItem('posts', id as string));
-} catch (error) {
-  console.error("Ошибка загрузки статьи:", error);
-}
-
-// Если статьи нет — уходим на 404
-if (!post) {
-  return Astro.redirect("/404");
-}
+const pageTitle = post?.title ? `Refined Lab | ${post.title}` : "Refined Lab | Пост";
+const html = post?.content ?? post?.body ?? "";
 ---
 
-<Layout title={post.title}>
+<Layout title={pageTitle}>
   <Header />
+
   <main id="main-content" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
-    <article>
-      <header style="margin-bottom: 3rem;">
-        <h1 style="font-size: 3rem; font-weight: bold; line-height: 1.2; margin-bottom: 1rem;">
-          {post.title}
-        </h1>
-        {post.description && (
-          <p style="font-size: 1.25rem; opacity: 0.7; font-style: italic;">
-            {post.description}
-          </p>
-        )}
-      </header>
+    {post ? (
+      <>
+        <nav style="margin-bottom: 1.5rem;">
+          <a href="/" style="text-decoration: underline; opacity: 0.85;">← На главную</a>
+          <span style="opacity: 0.6;"> &nbsp;•&nbsp; </span>
+          <a href="/posts" style="text-decoration: underline; opacity: 0.85;">Все статьи</a>
+        </nav>
 
-      <div class="post-content" set:html={post.content || "Текст статьи пуст."} />
-    </article>
+        <article>
+          <h1 style="font-size: 2.25rem; font-weight: 700; margin-bottom: 0.75rem;">
+            {post.title ?? "Без названия"}
+          </h1>
 
-    <div style="margin-top: 5rem; padding-top: 2rem; border-top: 1px dashed #444;">
-      <a href="/" style="color: var(--color-accent, #e11d48); text-decoration: none; font-weight: 500;">
-        &larr; Назад на главную
-      </a>
-    </div>
+          {post.description ? (
+            <p style="font-size: 1.1rem; opacity: 0.85; margin-bottom: 1.5rem;">
+              {post.description}
+            </p>
+          ) : null}
+
+          {html ? (
+            <div style="line-height: 1.8;" set:html={html} />
+          ) : (
+            <p style="opacity: 0.8;">Контент пока пуст.</p>
+          )}
+        </article>
+      </>
+    ) : (
+      <>
+        <h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.75rem;">Пост не найден</h1>
+        <p style="opacity: 0.85; margin-bottom: 1.5rem;">
+          Возможно, запись удалена или недоступна.
+        </p>
+        <a href="/" style="text-decoration: underline;">На главную</a>
+      </>
+    )}
   </main>
+
   <Footer />
 </Layout>
-
-<style is:global>
-  /* Стили для контента, чтобы текст не слипался */
-  .post-content {
-    line-height: 1.8;
-    font-size: 1.15rem;
-  }
-  .post-content p {
-    margin-bottom: 1.5rem;
-  }
-  .post-content h2 {
-    font-size: 1.8rem;
-    margin: 2.5rem 0 1rem;
-    font-weight: 600;
-  }
-  .post-content img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 8px;
-    margin: 2rem 0;
-  }
-</style>

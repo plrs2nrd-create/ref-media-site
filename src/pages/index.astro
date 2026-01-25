@@ -1,10 +1,10 @@
 ---
-import Layout from "../../layouts/Layout.astro";
-import Header from "../../components/Header.astro";
-import Footer from "../../components/Footer.astro";
+import Layout from "../layouts/Layout.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
 
-import { readItems, readItem } from "@directus/sdk";
-import { directus } from "../../lib/directus";
+import { readItems } from "@directus/sdk";
+import { directus } from "../lib/directus";
 
 export const prerender = true;
 
@@ -12,110 +12,53 @@ type Post = {
   id: string | number;
   title?: string;
   description?: string;
-  content?: string;
-  body?: string;
   date_created?: string;
-  date_updated?: string;
 };
 
-/**
- * Variant A (SSG): Astro требует getStaticPaths() для динамических роутов при prerender=true.
- * Генерим страницы /posts/:id на этапе build.
- */
-export async function getStaticPaths() {
-  try {
-    const posts = (await directus.request(
-      readItems("posts", {
-        fields: ["id"],
-        limit: -1,
-        // Если есть поле публикации — включи фильтр:
-        // filter: { status: { _eq: "published" } },
-      })
-    )) as Array<Pick<Post, "id">>;
-
-    return posts
-      .filter((p) => p?.id !== undefined && p?.id !== null)
-      .map((p) => ({
-        params: { id: String(p.id) },
-      }));
-  } catch (error) {
-    console.error("Directus getStaticPaths error:", error);
-    return [];
-  }
-}
-
-const { id } = Astro.params;
-
-// Если PK числовой — можно аккуратно кастануть (не обязательно, но помогает)
-const pk: string | number =
-  typeof id === "string" && /^\d+$/.test(id) ? Number(id) : (id as string);
-
-let post: Post | null = null;
+let directusPosts: Post[] = [];
 
 try {
-  post = (await directus.request(
-    readItem("posts", pk, {
-      fields: [
-        "id",
-        "title",
-        "description",
-        "content",
-        "body",
-        "date_created",
-        "date_updated",
-      ],
+  directusPosts = (await directus.request(
+    readItems("posts", {
+      fields: ["id", "title", "description", "date_created"],
+      sort: ["-date_created"],
+      limit: 10,
+      // filter: { status: { _eq: "published" } },
     })
-  )) as Post;
+  )) as Post[];
 } catch (error) {
-  console.error("Directus post fetch error:", error);
-  post = null;
+  console.error("Directus Connection Error (index):", error);
+  directusPosts = [];
 }
-
-const pageTitle = post?.title ? `Refined Lab | ${post.title}` : "Refined Lab | Пост";
-const html = post?.content ?? post?.body ?? "";
 ---
 
-<Layout title={pageTitle}>
+<Layout title="Refined Lab">
   <Header />
 
-  <main id="main-content" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
-    {post ? (
-      <>
-        <nav style="margin-bottom: 1.5rem;">
-          <a href="/posts" style="text-decoration: underline; opacity: 0.85;">
-            ← Назад к статьям
-          </a>
-        </nav>
+  <main id="main-content" style="max-width: 900px; margin: 0 auto; padding: 2rem;">
+    <section style="margin-bottom: 2rem;">
+      <h1 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem;">Refined Lab</h1>
+      <p style="opacity: 0.85;">Последние статьи из Directus</p>
+    </section>
 
-        <article>
-          <h1 style="font-size: 2.25rem; font-weight: 700; margin-bottom: 0.75rem;">
-            {post.title}
-          </h1>
-
-          {post.description ? (
-            <p style="font-size: 1.1rem; opacity: 0.85; margin-bottom: 1.5rem;">
-              {post.description}
-            </p>
-          ) : null}
-
-          {html ? (
-            <div style="line-height: 1.8;" set:html={html} />
-          ) : (
-            <p style="opacity: 0.8;">Контент пока пуст.</p>
-          )}
-        </article>
-      </>
-    ) : (
-      <>
-        <h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.75rem;">
-          Пост не найден
-        </h1>
-        <p style="opacity: 0.85; margin-bottom: 1.5rem;">
-          Возможно, запись удалена или недоступна.
-        </p>
-        <a href="/posts" style="text-decoration: underline;">Перейти к списку статей</a>
-      </>
-    )}
+    <section>
+      {directusPosts.length > 0 ? (
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          {directusPosts.map((post) => (
+            <li style="padding: 1.25rem 0; border-bottom: 1px solid rgba(0,0,0,.08);">
+              <a href={`/posts/${post.id}`} style="text-decoration: none;">
+                <h3 style="font-size: 1.25rem; margin: 0 0 0.35rem 0; text-decoration: underline;">
+                  {post.title ?? "Без названия"}
+                </h3>
+              </a>
+              {post.description ? <p style="margin: 0; opacity: 0.85;">{post.description}</p> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p style="opacity: 0.8;">Статей пока нет (или Directus недоступен на этапе сборки).</p>
+      )}
+    </section>
   </main>
 
   <Footer />
