@@ -2,18 +2,13 @@
 import Layout from "../layouts/Layout.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-
-// Инструменты для работы с Directus
 import { readItems } from '@directus/sdk';
 import { directus } from '../lib/directus';
 
-// 1. Принудительно отключаем проверку типов для этой переменной,
-// чтобы избежать ошибки ts(7005) в логах сервера
 // @ts-ignore
 let directusPosts: any[] = [];
 
 try {
-  // 2. Запрашиваем данные и принудительно указываем тип результата
   const response = await directus.request(readItems('posts'));
   directusPosts = response as any[];
 } catch (error) {
@@ -26,50 +21,25 @@ try {
   <main id="main-content" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
     <section id="hero" style="margin-bottom: 3rem;">
       <h1 style="font-size: 3rem; font-weight: bold; margin-bottom: 1rem;">Refined Lab</h1>
-      <p style="font-size: 1.25rem; opacity: 0.8;">
-        Связь с Directus установлена. Ниже ваши реальные статьи из базы данных:
-      </p>
+      <p style="font-size: 1.25rem; opacity: 0.8;">Статьи из Directus:</p>
     </section>
 
-    <hr style="border: 0; border-top: 1px dashed #666; margin-bottom: 3rem;" />
-
     <section id="recent-posts">
-      <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 2rem;">Свежие статьи</h2>
-
-      {/* Проверка наличия постов */}
       {directusPosts && directusPosts.length > 0 ? (
         <ul style="list-style: none; padding: 0;">
           {directusPosts.map((post) => (
             <li style="margin-bottom: 2.5rem;">
-              <a
-                href={`/posts/${post.id}`}
-                style="color: var(--color-accent, #e11d48); text-decoration: underline; text-underline-offset: 4px;"
-              >
-                <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem; display: inline-block;">
-                  {post.title}
-                </h3>
+              <a href={`/posts/${post.id}`} style="color: #e11d48; text-decoration: underline;">
+                <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">{post.title}</h3>
               </a>
-              <p style="opacity: 0.9; line-height: 1.6; margin-top: 0.5rem;">
-                {post.description || "Описание статьи скоро появится..."}
-              </p>
+              <p>{post.description}</p>
             </li>
           ))}
         </ul>
       ) : (
-        <p>Статьи не найдены. Убедитесь, что в Directus созданы и опубликованы записи в коллекции 'posts'.</p>
+        <p>Статей пока нет.</p>
       )}
     </section>
   </main>
   <Footer />
 </Layout>
-
-<style>
-  /* Минимальные стили для стабильной работы */
-  main {
-    width: 100%;
-    min-height: 70vh;
-  }
-  h1, h2, h3 {
-    color: var(--color-text-base);
-  }
-</style>
