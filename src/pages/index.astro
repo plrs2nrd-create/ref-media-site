@@ -7,7 +7,7 @@ import Footer from "../components/Footer.astro";
 import { readItems } from '@directus/sdk';
 import { directus } from '../lib/directus';
 
-let directusPosts = [];
+let directusPosts: any[] = [];
 try {
   // Запрашиваем посты
   directusPosts = await directus.request(readItems('posts'));
