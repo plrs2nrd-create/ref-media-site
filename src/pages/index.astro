@@ -3,35 +3,31 @@ import Layout from "../layouts/Layout.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 
-// --- ПОДКЛЮЧЕНИЕ DIRECTUS ---
+// Инструменты для работы с Directus
 import { readItems } from '@directus/sdk';
 import { directus } from '../lib/directus';
 
+// 1. Принудительно отключаем проверку типов для этой переменной,
+// чтобы избежать ошибки ts(7005) в логах сервера
+// @ts-ignore
 let directusPosts: any[] = [];
 
 try {
+  // 2. Запрашиваем данные и принудительно указываем тип результата
   const response = await directus.request(readItems('posts'));
-  // Принудительно говорим системе, что response — это массив
   directusPosts = response as any[];
-} catch (error) {
-  console.error("Directus Connection Error:", error);
-}
-
-try {
-  // Запрашиваем посты
-  directusPosts = await directus.request(readItems('posts'));
 } catch (error) {
   console.error("Directus Connection Error:", error);
 }
 ---
 
-<Layout>
+<Layout title="Refined Lab | Блог">
   <Header />
   <main id="main-content" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
     <section id="hero" style="margin-bottom: 3rem;">
       <h1 style="font-size: 3rem; font-weight: bold; margin-bottom: 1rem;">Refined Lab</h1>
       <p style="font-size: 1.25rem; opacity: 0.8;">
-        Связь с Directus установлена. Ниже ваши реальные статьи:
+        Связь с Directus установлена. Ниже ваши реальные статьи из базы данных:
       </p>
     </section>
 
@@ -40,7 +36,8 @@ try {
     <section id="recent-posts">
       <h2 style="font-size: 1.5rem; font-weight: 600; margin-bottom: 2rem;">Свежие статьи</h2>
 
-      {directusPosts.length > 0 ? (
+      {/* Проверка наличия постов */}
+      {directusPosts && directusPosts.length > 0 ? (
         <ul style="list-style: none; padding: 0;">
           {directusPosts.map((post) => (
             <li style="margin-bottom: 2.5rem;">
@@ -52,12 +49,14 @@ try {
                   {post.title}
                 </h3>
               </a>
-              <p style="opacity: 0.9; line-height: 1.6;">{post.description || "Нет описания"}</p>
+              <p style="opacity: 0.9; line-height: 1.6; margin-top: 0.5rem;">
+                {post.description || "Описание статьи скоро появится..."}
+              </p>
             </li>
           ))}
         </ul>
       ) : (
-        <p>Статьи не найдены. Проверьте, что в Directus есть опубликованные посты.</p>
+        <p>Статьи не найдены. Убедитесь, что в Directus созданы и опубликованы записи в коллекции 'posts'.</p>
       )}
     </section>
   </main>
@@ -65,8 +64,12 @@ try {
 </Layout>
 
 <style>
-  /* Минимум стилей, чтобы ничего не ломалось */
+  /* Минимальные стили для стабильной работы */
   main {
     width: 100%;
+    min-height: 70vh;
+  }
+  h1, h2, h3 {
+    color: var(--color-text-base);
   }
 </style>
