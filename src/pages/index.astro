@@ -8,6 +8,15 @@ import { readItems } from '@directus/sdk';
 import { directus } from '../lib/directus';
 
 let directusPosts: any[] = [];
+
+try {
+  const response = await directus.request(readItems('posts'));
+  // Принудительно говорим системе, что response — это массив
+  directusPosts = response as any[];
+} catch (error) {
+  console.error("Directus Connection Error:", error);
+}
+
 try {
   // Запрашиваем посты
   directusPosts = await directus.request(readItems('posts'));

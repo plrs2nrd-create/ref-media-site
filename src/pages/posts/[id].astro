@@ -11,7 +11,16 @@ import { directus } from '../../lib/directus';
 const { id } = Astro.params;
 
 // 2. Загружаем статью
+// @ts-ignore
 let post: any;
+
+try {
+  const response = await directus.request(readItem('posts', id as string));
+  post = response as any;
+} catch (error) {
+  console.error("Ошибка загрузки статьи:", error);
+}
+
 try {
   post = await directus.request(readItem('posts', id as string));
 } catch (error) {
