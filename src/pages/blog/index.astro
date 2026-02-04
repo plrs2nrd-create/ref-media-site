@@ -1,0 +1,100 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+
+import { readItems } from "@directus/sdk";
+import { directus } from "../../lib/directus";
+
+// Это важно для статической генерации, если вы используете её
+export const prerender = true;
+
+type PostListItem = {
+  id: string;
+  title?: string;
+  content?: string;
+  date_created?: string;
+};
+
+let posts: PostListItem[] = [];
+let fetchError: string | null = null;
+
+try {
+  // Попытка 1: Запрашиваем всё, включая контент для превью
+  const result = await directus.request(
+    readItems("posts", {
+      fields: ["id", "title", "content", "date_created"],
+      sort: ["-date_created"],
+      limit: 50,
+    })
+  );
+  posts = result as PostListItem[];
+} catch (e: any) {
+  // Попытка 2 (Фолбэк): Если ошибка (например, прав доступа к content нет),
+  // запрашиваем только заголовки
+  try {
+    const resultFallback = await directus.request(
+      readItems("posts", {
+        fields: ["id", "title", "date_created"],
+        sort: ["-date_created"],
+        limit: 50,
+      })
+    );
+    posts = resultFallback as PostListItem[];
+  } catch (e2: any) {
+    fetchError = e2?.message ?? "Directus error";
+    console.error("Ошибка загрузки Directus:", e2);
+  }
+}
+
+// Функция для очистки HTML тегов для превью текста
+const stripHtml = (s: string) => s.replace(/<[^>]+>/g, "");
+const excerpt = (p: PostListItem) =>
+  p.content ? stripHtml(p.content).slice(0, 180) : "";
+---
+
+<Layout title="Refined Lab | Blog (Directus)">
+  <Header />
+
+  <main id="main-content" style="max-width: 800px; margin: 0 auto; padding: 2rem;">
+    <h1 style="font-size: 2.25rem; font-weight: 700; margin-bottom: 2rem;">Blog</h1>
+
+    {fetchError ? (
+      <div style="padding: 1rem; background: #fee2e2; color: #991b1b; border-radius: 8px; margin-bottom: 2rem;">
+        Ошибка загрузки данных: {fetchError}
+      </div>
+    ) : null}
+
+    {posts.length > 0 ? (
+      <ul style="list-style: none; padding: 0;">
+        {posts.map((post) => (
+          <li style="margin-bottom: 2.5rem; border-bottom: 1px solid #eee; padding-bottom: 2rem;">
+            {/* ВАЖНО: Ссылка теперь ведет на /blog/, так как папка называется blog */}
+            <a href={`/blog/${post.id}`} style="text-decoration: none; color: inherit;">
+              <h3 style="font-size: 1.5rem; font-weight: 600; margin: 0 0 0.5rem 0; color: #e11d48; text-decoration: underline; text-underline-offset: 4px;">
+                {post.title ?? "Без названия"}
+              </h3>
+            </a>
+
+            {/* Дата публикации */}
+            {post.date_created && (
+              <p style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">
+                {new Date(post.date_created).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            )}
+
+            {excerpt(post) ? (
+              <p style="opacity: 0.85; margin: 0; line-height: 1.6;">
+                {excerpt(post)}...
+              </p>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    ) : (
+      !fetchError && <p style="opacity: 0.8;">Статей пока нет.</p>
+    )}
+  </main>
+
+  <Footer />
+</Layout>

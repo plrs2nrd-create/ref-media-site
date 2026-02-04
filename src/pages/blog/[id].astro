@@ -9,32 +9,26 @@ import { directus } from "../../lib/directus";
 export const prerender = true;
 
 type Post = {
-  id: string | number;
+  id: string;
   title?: string;
-  description?: string;
   content?: string;
-  body?: string;
   date_created?: string;
-  date_updated?: string;
 };
 
 export async function getStaticPaths() {
   try {
-    const posts = (await directus.request(
+    const items = (await directus.request(
       readItems("posts", {
         fields: ["id"],
         limit: -1,
-        // filter: { status: { _eq: "published" } },
       })
     )) as Array<Pick<Post, "id">>;
 
-    return posts
-      .filter((p) => p?.id !== undefined && p?.id !== null)
-      .map((p) => ({
-        params: { id: String(p.id) },
-      }));
-  } catch (error) {
-    console.error("Directus getStaticPaths error:", error);
+    return items
+      .filter((p) => p?.id)
+      .map((p) => ({ params: { id: String(p.id) } }));
+  } catch (e) {
+    console.error("Directus getStaticPaths error:", e);
     return [];
   }
 }
@@ -45,25 +39,26 @@ let post: Post | null = null;
 
 try {
   post = (await directus.request(
-    readItem("posts", id, {
-      fields: [
-        "id",
-        "title",
-        "description",
-        "content",
-        "body",
-        "date_created",
-        "date_updated",
-      ],
+    readItem("posts", String(id), {
+      fields: ["id", "title", "content", "date_created"],
     })
   )) as Post;
-} catch (error) {
-  console.error("Directus post fetch error:", error);
-  post = null;
+} catch (e: any) {
+  // если контент запрещён — попробуем хотя бы заголовок
+  try {
+    post = (await directus.request(
+      readItem("posts", String(id), {
+        fields: ["id", "title", "date_created"],
+      })
+    )) as Post;
+  } catch (e2) {
+    console.error("Directus post fetch error:", e2);
+    post = null;
+  }
 }
 
 const pageTitle = post?.title ? `Refined Lab | ${post.title}` : "Refined Lab | Пост";
-const html = post?.content ?? post?.body ?? "";
+const html = post?.content ?? "";
 ---
 
 <Layout title={pageTitle}>
@@ -73,36 +68,25 @@ const html = post?.content ?? post?.body ?? "";
     {post ? (
       <>
         <nav style="margin-bottom: 1.5rem;">
-          <a href="/" style="text-decoration: underline; opacity: 0.85;">← На главную</a>
-          <span style="opacity: 0.6;"> &nbsp;•&nbsp; </span>
-          <a href="/posts" style="text-decoration: underline; opacity: 0.85;">Все статьи</a>
+          <a href="/blog" style="text-decoration: underline; opacity: 0.85;">← Назад к статьям</a>
         </nav>
 
         <article>
-          <h1 style="font-size: 2.25rem; font-weight: 700; margin-bottom: 0.75rem;">
+          <h1 style="font-size: 2.25rem; font-weight: 700; margin-bottom: 1rem;">
             {post.title ?? "Без названия"}
           </h1>
-
-          {post.description ? (
-            <p style="font-size: 1.1rem; opacity: 0.85; margin-bottom: 1.5rem;">
-              {post.description}
-            </p>
-          ) : null}
 
           {html ? (
             <div style="line-height: 1.8;" set:html={html} />
           ) : (
-            <p style="opacity: 0.8;">Контент пока пуст.</p>
+            <p style="opacity: 0.8;">Контент недоступен или пуст.</p>
           )}
         </article>
       </>
     ) : (
       <>
         <h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.75rem;">Пост не найден</h1>
-        <p style="opacity: 0.85; margin-bottom: 1.5rem;">
-          Возможно, запись удалена или недоступна.
-        </p>
-        <a href="/" style="text-decoration: underline;">На главную</a>
+        <a href="/blog" style="text-decoration: underline;">Перейти к списку статей</a>
       </>
     )}
   </main>
